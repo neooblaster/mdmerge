@@ -1,0 +1,26 @@
+{
+    "name": "mdmerge",
+    "version": "1.0.0",
+    "description": "Make a complete Markdown document from other files with a dedicated include instruction",
+    "main": "bin/mdmerge.js",
+    "scripts": {
+        "test": "mdmerge -v"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+ssh://git@github.com/neooblaster/mdmerge.git"
+    },
+    "keywords": [
+        "Markdown",
+        "Include"
+    ],
+    "author": "Nicolas DUPRE",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/neooblaster/mdmerge/issues"
+    },
+    "homepage": "https://github.com/neooblaster/mdmerge#readme",
+    "bin": {
+        "mdmerge": "./bin/mdmerge.js"
+    }
+}
