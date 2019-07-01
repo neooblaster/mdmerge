@@ -12,7 +12,8 @@
     },
     "keywords": [
         "Markdown",
-        "Include"
+        "Include",
+		"Commonmark"
     ],
     "author": "Nicolas DUPRE",
     "license": "MIT",
