@@ -40,11 +40,12 @@ const colors = {
 // Caractères suivis par un deux-points (le paramètre nécessite une valeur)
 // Caractères suivis par deux-points (valeur optionnelle)
 const options = {
-    shortopt: "i:o:c",
+    shortopt: "i:o:cw",
     longopt: [
         "in:",
         "out:",
-        "clear"
+        "clear",
+        "write"
     ],
 };
 
@@ -648,12 +649,15 @@ function readOption (option, argument) {
  */
 let OPTS = getopt(options.shortopt, options.longopt);
 
-
 /**
  * Traitement des options
  */
 IFILE = OPTS.in ? OPTS.in.val : OPTS.i ? OPTS.i.val : IFILE;
 OFILE = OPTS.out ? OPTS.out.val : OPTS.o ? OPTS.o.val : OFILE;
+
+if (OPTS.w || OPTS.write) {
+    OFILE = IFILE;
+}
 
 
 /**
@@ -681,7 +685,7 @@ let tmpFile = fs.createWriteStream(TMP_FILE, {});
 /**
  * Traitement en fonction des options
  */
-CLEAR = OPTS.clear ? true : OPTS.c ? true : false;
+CLEAR = OPTS.clear ? true : !!OPTS.c;
 
 // Traitement du fichier
 readFile(IFILE, tmpFile, CLEAR);
