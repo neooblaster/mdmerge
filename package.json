@@ -1,6 +1,6 @@
 {
     "name": "mdmerge",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "description": "Make a complete Markdown document from other files with a dedicated include instruction",
     "main": "bin/mdmerge.js",
     "scripts": {
@@ -13,7 +13,7 @@
     "keywords": [
         "Markdown",
         "Include",
-		"Commonmark"
+        "Commonmark"
     ],
     "author": "Nicolas DUPRE",
     "license": "MIT",
