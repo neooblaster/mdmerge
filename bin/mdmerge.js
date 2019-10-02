@@ -449,10 +449,10 @@ function readFile (file, outputFile, clearMode, options = {}) {
                     // Exécuter les couples pour l'insertion des données du fichier.
                     if (cutCouple.length > 0) {
                         cutCouple.map(function (couple) {
-                            readFile(inclusion.file, outputFile, couple);
+                            readFile(inclusion.file, outputFile, clearMode, couple);
                         });
                     } else {
-                        readFile(inclusion.file, outputFile);
+                        readFile(inclusion.file, outputFile, clearMode);
                     }
 
                     // Si on avait demandé à envelopper dans un code block
