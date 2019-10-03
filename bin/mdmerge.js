@@ -354,6 +354,12 @@ function readFile (file, outputFile, clearMode, options = {}) {
                 // Generer l'instruction de clôture
                 closingInstruction = instruction.replace(">", "<");
 
+                // Securisation des instructions
+                if (/(?<!\\)\s/.test(instruction)) {
+                    instruction = instruction.replace(/\s/g, "\\ ");
+                    closingInstruction = closingInstruction.replace(/\s/g, "\\ ");
+                }
+
                 // Procéder à l'inclusion des contenus.
                 outputFile.write(instruction + "\n");
                 if (!clearMode) instructionData.inclusions.map(function (inclusion) {
@@ -446,6 +452,8 @@ function readFile (file, outputFile, clearMode, options = {}) {
                         startCut = null;
                     }
 
+                    // Restaurer les caractères échappés
+                    inclusion.file = inclusion.file.replace(/\\\s/g, ' ');
 
                     // Exécuter les couples pour l'insertion des données du fichier.
                     if (cutCouple.length > 0) {
