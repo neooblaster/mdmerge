@@ -219,7 +219,7 @@ function fileExists(path, level) {
         return true;
     } catch(err) {
         log(err, level);
-        return false;
+        process.exit();
     }
 }
 
@@ -450,9 +450,11 @@ function readFile (file, outputFile, clearMode, options = {}) {
                     // Exécuter les couples pour l'insertion des données du fichier.
                     if (cutCouple.length > 0) {
                         cutCouple.map(function (couple) {
+                            fileExists(inclusion.file, 1);
                             readFile(inclusion.file, outputFile, clearMode, couple);
                         });
                     } else {
+                        fileExists(inclusion.file, 1);
                         readFile(inclusion.file, outputFile, clearMode);
                     }
 
@@ -673,7 +675,7 @@ if (!IFILE) {
 /**
  * Vérification de l'existance du fichier.
  */
-if (!fileExists(IFILE, 1)) return false;
+fileExists(IFILE, 1);
 
 
 /**
