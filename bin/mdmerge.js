@@ -76,7 +76,7 @@ function getopt(shortopt, longopt = []) {
 
     let processedArg = 0;
     let implicitArg = 1;
-    let procOptions = {}  // .optarg, .opt, .optval
+    let procOptions = {};  // .optarg, .opt, .optval
 
     process.argv.forEach(function(arg) {
         processedArg++;
@@ -92,8 +92,8 @@ function getopt(shortopt, longopt = []) {
             let opt = splitOpt[1];
             let optVal = splitOpt[2];
 
-            for(let i = 0; i < options.longopt.length; i++) {
-                let lgOpt = options.longopt[i].match(/([a-zA-Z0-9._-]+)(\:*)/);
+            for(let i = 0; i < longopt.length; i++) {
+                let lgOpt = longopt[i].match(/([a-zA-Z0-9._-]+)(:*)/);
                 let lgOptName = lgOpt[1];
                 let lgOptConfig = lgOpt[2];
 
@@ -172,8 +172,9 @@ function createOption(optarg, opt, optval) {
 /**
  * Afficher un message dans le stream.
  *
- * @param message Message à afficher
- * @param level   Niveau de message. 0=OK,1=KO,2=WARN
+ * @param message Message à afficher.
+ * @param level   Niveau de message. 0=OK,1=KO,2=WARN.
+ * @param args    Arguments which will replace placeholder in message.
  */
 function log(message, level = 0, args = []){
     // 0 = Success
@@ -227,6 +228,7 @@ function fileExists(path, level) {
  *
  * @param file          Emplacement vers le fichier à traiter (master ou include).
  * @param outputFile    Fichier de sortie (unique).
+ * @param clearMode     Indicate to not perform inclusion and then to clear included content.
  * @param options       Options de lecture du fichier définie dans l'instruction.
  */
 function readFile (file, outputFile, clearMode, options = {}) {
@@ -236,11 +238,10 @@ function readFile (file, outputFile, clearMode, options = {}) {
     let started = false;    // Vrai si l'instruction de cut Start à été trouvée
     let ended = false;      // Vrai si l'instruction de cut End à été trouvée
     let oneline = false;    // Vrai si l'instruction de cut Online à été trouvée
-    let codeOutput = false;
 
 
     // Lecture de chaque ligne du fichier
-    for (var l = 0; l < lines.length; l++) {
+    for (let l = 0; l < lines.length; l++) {
         let line = lines[l];
 
         let option = null;
@@ -382,7 +383,7 @@ function readFile (file, outputFile, clearMode, options = {}) {
                     let cutCouple = [];
 
                     // Parcourir chaque cut pour en constituer des couples
-                    for(var c = 0; c < inclusion.cuts.length; c++) {
+                    for(let c = 0; c < inclusion.cuts.length; c++) {
                         let cut = inclusion.cuts[c];
 
                         // Le cut est online si :
@@ -400,7 +401,7 @@ function readFile (file, outputFile, clearMode, options = {}) {
                                 cutCouple.push({
                                     start: readCut(""),
                                     end: lastCut
-                                })
+                                });
                                 startCut = null;
                             }
 
@@ -498,7 +499,7 @@ function readFile (file, outputFile, clearMode, options = {}) {
                 }
             }
         }
-    };
+    }
 }
 
 /**
@@ -594,7 +595,7 @@ function readCut (cut) {
         line: 0,
         beginOffset: 0,
         endOffset: null
-    }
+    };
 
     let cutElements =  cut.split(/,/);
     let cutElement = Object.assign({}, cutTemplate);
@@ -699,7 +700,7 @@ readFile(IFILE, tmpFile, CLEAR);
 if (!OFILE) {
     OFILE = IFILE;
     OFILE = OFILE.replace(/\.md$/, '.merged.md');
-};
+}
 fs.rename(TMP_FILE, OFILE, function(err) {
     if (err) throw err;
 });
