@@ -227,17 +227,34 @@ function fileExists(path, level) {
  * Lit le fichier spécifié
  *
  * @param file          Emplacement vers le fichier à traiter (master ou include).
+ * @param nestedPath    Mémorisation des sous-dossiers invoqués, concaténés par appel de la fonction.
  * @param outputFile    Fichier de sortie (unique).
  * @param clearMode     Indicate to not perform inclusion and then to clear included content.
  * @param options       Options de lecture du fichier définie dans l'instruction.
  */
-function readFile (file, outputFile, clearMode, options = {}) {
+function readFile (file, nestedPath, outputFile, clearMode, options = {}) {
     let lines = fs.readFileSync(file, 'utf-8').split(/\r?\n/);
 
     let writeOutput = true; // On n'ecrit pas le contenu si celui-ci est un contenu entre balise
     let started = false;    // Vrai si l'instruction de cut Start à été trouvée
     let ended = false;      // Vrai si l'instruction de cut End à été trouvée
     let oneline = false;    // Vrai si l'instruction de cut Online à été trouvée
+
+
+    // Analyse du nesting dans la recursivité des appels readFile
+    let fileFolderPath = file.match(/(.+\/)(.+)/);
+    if (fileFolderPath) {
+        fileFolderPath = fileFolderPath[1];
+    } else {
+        fileFolderPath = '';
+    }
+
+    if (nestedPath) {
+        nestedPath = `${nestedPath}/${fileFolderPath}`;
+    } else {
+        nestedPath = fileFolderPath;
+    }
+
 
 
     // Lecture de chaque ligne du fichier
@@ -458,12 +475,12 @@ function readFile (file, outputFile, clearMode, options = {}) {
                     // Exécuter les couples pour l'insertion des données du fichier.
                     if (cutCouple.length > 0) {
                         cutCouple.map(function (couple) {
-                            fileExists(inclusion.file, 1);
-                            readFile(inclusion.file, outputFile, clearMode, couple);
+                            fileExists(`${nestedPath}${inclusion.file}`, 1);
+                            readFile(`${nestedPath}${inclusion.file}`, nestedPath, outputFile, clearMode, couple);
                         });
                     } else {
-                        fileExists(inclusion.file, 1);
-                        readFile(inclusion.file, outputFile, clearMode);
+                        fileExists(`${nestedPath}${inclusion.file}`, 1);
+                        readFile(`${nestedPath}${inclusion.file}`, nestedPath, outputFile, clearMode);
                     }
 
                     // Si on avait demandé à envelopper dans un code block
@@ -492,6 +509,39 @@ function readFile (file, outputFile, clearMode, options = {}) {
             // Si ce n'est pas du contenu entre balise
             if (writeOutput) {
                 //console.log("WriteOutput: pas de contenu de balise");
+
+                // Vérifier que la line que nous devons écrire ne contient pas
+                // un emplacement qui est relatif
+                //@TODO, chek début pour commencement par /. Ne rien faire si oui
+                let pathToFile = null;
+                // #1 Modele Markdown 1 : [XX]: path/to/file
+                let mdPattern1 = /(.*)(\[.*\]:\s*)(.*\/?.*)(.*)/;
+                // #2 Modele Markdown 2 : ![](path/to/file)
+                let mdPattern2 = /(.*)(\[.*\])(\()(.*)(\))(.*)/;
+                // #3 Balise HMTL img    : src="path/to/file"
+                // #4 Attribut HTML      : url('path/to/file')*
+
+                // Case #1 : Modèle Markdown 1 :
+                if (mdPattern1.test(line)) {
+                    pathToFile = line.match(mdPattern1);
+
+                    line = pathToFile[1]             // Chaine avant
+                        + pathToFile[2]              // Début Modele MD1 (alt)
+                        + nestedPath + pathToFile[3] // Path (ref)
+                        + pathToFile[4];             // Fin
+                }
+
+                // Case #2 : Modèle Markdown 2 :
+                if (mdPattern2.test(line)) {
+                    pathToFile = line.match(mdPattern2);
+
+                    line = pathToFile[1]             // Chaine avant
+                        + pathToFile[2]              // Début Modele MD2 (alt)
+                        + pathToFile[3]              // Parenthèse (
+                        + nestedPath + pathToFile[4] // Path (path)
+                        + pathToFile[5]              // Parenthèse )
+                        + pathToFile[6];             // Fin
+                }
 
                 // Si on à démarré l'écriture ou on a affaire à une oneline
                 if (started || oneline) {
@@ -699,7 +749,7 @@ let tmpFile = fs.createWriteStream(TMP_FILE, {});
 CLEAR = OPTS.clear ? true : !!OPTS.c;
 
 // Traitement du fichier
-readFile(IFILE, tmpFile, CLEAR);
+readFile(IFILE, '', tmpFile, CLEAR);
 
 
 /**

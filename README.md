@@ -30,7 +30,7 @@ Examples with **implicits** options :
 1. ``mdmerge <INPUT_FILE>.md <OUTPUT_FILE>.md`` : The merged document from
 ``<INPUT_FILE>.md`` will be place in the output file `<OUTPUT_FILE>.md`
 2. ``mdmerge <INPUT_FILE>.md <INPUT_FILE>.md`` : Done like this, you will overwrite
-your source file will the result.
+your source file with the result.
 
 The second case ``2.`` can be simply with the following command :
 ``mdmerge <FILE>.md -w``
