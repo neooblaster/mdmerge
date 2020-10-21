@@ -1,6 +1,6 @@
 {
     "name": "mdmerge",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "description": "Make a complete Markdown document from other files with a dedicated include instruction",
     "main": "bin/mdmerge.js",
     "scripts": {
