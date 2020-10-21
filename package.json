@@ -23,5 +23,8 @@
     "homepage": "https://github.com/neooblaster/mdmerge#readme",
     "bin": {
         "mdmerge": "./bin/mdmerge.js"
+    },
+    "dependencies": {
+        "ifopt": "^1.4.1"
     }
 }

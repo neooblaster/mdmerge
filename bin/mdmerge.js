@@ -3,49 +3,25 @@
 /**
  * Chargement des dépendances.
  */
-const fs = require('fs');
+const fs       = require('fs');
 const readline = require('readline');
-const colors = {
-    Reset: "\x1b[0m",
-    Bright: "\x1b[1m",
-    Dim: "\x1b[2m",
-    Underscore: "\x1b[4m",
-    Blink: "\x1b[5m",
-    Reverse: "\x1b[7m",
-    Hidden: "\x1b[8m",
-    fg: {
-        Black: "\x1b[30m",
-        Red: "\x1b[31m",
-        Green: "\x1b[32m",
-        Yellow: "\x1b[33m",
-        Blue: "\x1b[34m",
-        Magenta: "\x1b[35m",
-        Cyan: "\x1b[36m",
-        White: "\x1b[37m",
-        Crimson: "\x1b[38m"
-    },
-    bg: {
-        Black: "\x1b[40m",
-        Red: "\x1b[41m",
-        Green: "\x1b[42m",
-        Yellow: "\x1b[43m",
-        Blue: "\x1b[44m",
-        Magenta: "\x1b[45m",
-        Cyan: "\x1b[46m",
-        White: "\x1b[47m",
-        Crimson: "\x1b[48m"
-    }
-};
+const ifopt    = require('ifopt');
+const log      = ifopt.log;
+const clog     = console.log;
+
+
 // Caractères individuels (n'accepte pas de valeur)
 // Caractères suivis par un deux-points (le paramètre nécessite une valeur)
 // Caractères suivis par deux-points (valeur optionnelle)
 const options = {
-    shortopt: "i:o:cw",
+    shortopt: "i:o:cwhD",
     longopt: [
         "in:",
         "out:",
         "clear",
-        "write"
+        "write",
+        "help",
+        "debug"
     ],
 };
 
@@ -54,7 +30,9 @@ const options = {
 /**
  * Déclaration des variables globales.
  */
+let OPTS = null;
 let PWD = process.env.PWD;
+let IMPLICITS = {IFILE:null, OFILE: null};
 let IFILE = null;
 let OFILE = null;
 
@@ -65,139 +43,45 @@ let OFILE = null;
  */
 
 /**
- * Traiter les arguments passé au programme
+ * Affiche le manuel d'aide.
  *
- * @param shortopt  Définition des options courtes.
- * @param longopt   Définition des options longues.
- * @returns {{}}    Options parsées.
+ * @param {Number} level  If we display the help next to an invalid command.
+ *
+ * @return void
  */
-function getopt(shortopt, longopt = []) {
-    checkShortopt(shortopt);
+function help(level = 0) {
+    let name = 'mdmerge';
+    let helpText = `
+Usage : ${name} [OPTIONS]
+------------------------------------------------------------
 
-    let processedArg = 0;
-    let implicitArg = 1;
-    let procOptions = {};  // .optarg, .opt, .optval
+{{${name}}} generates file tree in the README.md file.
 
-    process.argv.forEach(function(arg) {
-        processedArg++;
+{{-h}}, {{--help}}        Display this text.
+{{-d}}, {{--dir}}         Set the working directory.
+{{-r}}, {{--recursive}}   Set the recursive level.
+{{-o}}, {{--output}}      If set, sent in separate file.
+{{-m}}, {{--md5}}         Add md5 hash.
+{{-p}}, {{--params}}      Provide settings in JSON format.
+{{-v}}, {{--verbose}}     Verbose Mode.
+{{-D}}, {{--debug}}       Debug Mode.
+    {{--no-color}}    Remove color in the console. Usefull to
+                  redirect log in a debug file.
 
-        // Skip Interpreter (node.exe) and it self (mdmerge.js)
-        if (processedArg < 3) return;
+Details :
+  Params List :
+    - Boolean {{FileSize}}    Display File Size
+    - String  {{SizeFormat}}  File size in B, K, M, G, T (Byte)
 
+    `;
 
-        // Check if it is a explicit argument (longopt).
-        if (/^--/.test(arg)) {
-            let splitOpt = arg.match(/^--([a-zA-Z0-9._-]+)=?(.*)/);
-            if (!splitOpt) return;
-            let opt = splitOpt[1];
-            let optVal = splitOpt[2];
-
-            for(let i = 0; i < longopt.length; i++) {
-                let lgOpt = longopt[i].match(/([a-zA-Z0-9._-]+)(:*)/);
-                let lgOptName = lgOpt[1];
-                let lgOptConfig = lgOpt[2];
-
-                if (opt === lgOptName) {
-                    if (lgOptConfig === ':' && !optVal) {
-                        log(`Option '--${opt}' require a value`, 1, []);
-                    }
-
-                    procOptions[opt] = createOption(arg, opt, optVal);
-                }
-            }
-        }
-
-        // Check if it is a explicit argument (shortopt).
-        else if (/^-/.test(arg)) {
-            let opt = arg.substr(1, 1);
-            let optIdx = shortopt.indexOf(opt);
-            let optVal = arg.match(/^-(.+)=(.*)/);
-            if (optVal) optVal = optVal[2];
-
-            if (optIdx < 0 ) return;
-
-            let nextOptChar1 = shortopt.substr(optIdx +1, 1);
-            let nextOptChar2 = shortopt.substr(optIdx +2, 1);
-
-            if (nextOptChar1 === ':' && nextOptChar2 !== ':' && !optVal) {
-                log(`Option '-${opt}' require a value`, 1, []);
-                return;
-            }
-
-            procOptions[opt] = createOption(arg, opt, optVal);
-        }
-
-        // This is an implicit argument.
-        else {
-            switch (implicitArg) {
-                // First implicit goes to Input File IFILE.
-                case 1:
-                    IFILE = arg;
-                    break;
-                // Second implicit goes to Output File OFILE.
-                case 2:
-                    OFILE = arg;
-                    break;
-            }
-
-            implicitArg++;
-        }
-    });
-
-    return procOptions;
-}
-
-// validation de la chaine shortopt pour limiter les doublons
-function checkShortopt () {
-
-}
-
-/**
- *  Créer une option parsée pour utilisation ultérieure.
- *
- * @param optarg    Option d'origine passée en argument.
- * @param opt       Option isolée.
- * @param optval    Valeur de l'option.
- *
- * @returns {{optarg: *, opt: *, optval: *}}
- */
-function createOption(optarg, opt, optval) {
-    return {
-        "arg": optarg,
-        "opt": opt,
-        "val": optval
-    };
-}
-
-/**
- * Afficher un message dans le stream.
- *
- * @param message Message à afficher.
- * @param level   Niveau de message. 0=OK,1=KO,2=WARN.
- * @param args    Arguments which will replace placeholder in message.
- */
-function log(message, level = 0, args = []){
-    // 0 = Success
-    // 1 = Error
-    // 2 = Warn
-    // 3 = Info
-    let levels = [
-        {color: "Green", name: "SUCCESS", return: 0},
-        {color: "Red", name: "ERROR", return: 1},
-        {color: "Yellow", name: "WARNING", return: 0},
-        {color: "Cyan", name: "INFO", return: 0},
-    ];
-
-    console.log(
-        "[ " +
-        colors.fg[levels[level].color] +
-        levels[level].name +
-        colors.Reset +
-        " ] : " +
-        message
+    helpText = helpText.replace(
+        /{{(.*?)}}/g,
+        `${opt.colors.fg.Yellow}$1${opt.colors.Reset}`
     );
 
-    return levels[level].return;
+    console.log(helpText);
+    if (level) process.exit();
 }
 
 /**
@@ -218,7 +102,8 @@ function fileExists(path, level) {
 
         return true;
     } catch(err) {
-        log(err, level);
+        clog(err)
+        //log(err, level, []);
         process.exit();
     }
 }
@@ -708,13 +593,18 @@ function readOption (option, argument) {
 /**
  * Lecture des arguments du script.
  */
-let OPTS = getopt(options.shortopt, options.longopt);
+OPTS = ifopt.getopt(
+    options.shortopt,
+    options.longopt,
+    ['IFILE', 'OFILE'],
+    IMPLICITS
+);
 
 /**
  * Traitement des options
  */
-IFILE = OPTS.in ? OPTS.in.val : OPTS.i ? OPTS.i.val : IFILE;
-OFILE = OPTS.out ? OPTS.out.val : OPTS.o ? OPTS.o.val : OFILE;
+IFILE = OPTS.in ? OPTS.in.val : OPTS.i ? OPTS.i.val : IMPLICITS.IFILE;
+OFILE = OPTS.out ? OPTS.out.val : OPTS.o ? OPTS.o.val : IMPLICITS.OFILE;
 
 if (OPTS.w || OPTS.write) {
     OFILE = IFILE;
