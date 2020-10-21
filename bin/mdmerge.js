@@ -14,14 +14,16 @@ const clog     = console.log;
 // Caractères suivis par un deux-points (le paramètre nécessite une valeur)
 // Caractères suivis par deux-points (valeur optionnelle)
 const options = {
-    shortopt: "i:o:cwhD",
+    shortopt: "i:o:cwhDv",
     longopt: [
         "in:",
         "out:",
         "clear",
         "write",
         "help",
-        "debug"
+        "debug",
+        "verbose",
+        "no-color"
     ],
 };
 
@@ -35,6 +37,9 @@ let PWD = process.env.PWD;
 let IMPLICITS = {IFILE:null, OFILE: null};
 let IFILE = null;
 let OFILE = null;
+let SHOWHELP = true;
+let DEBUG = false;
+let VERBOSE = false;
 
 
 
@@ -55,33 +60,39 @@ function help(level = 0) {
 Usage : ${name} [OPTIONS]
 ------------------------------------------------------------
 
-{{${name}}} generates file tree in the README.md file.
+{{${name}}} merge included file in output file.
 
 {{-h}}, {{--help}}        Display this text.
-{{-d}}, {{--dir}}         Set the working directory.
-{{-r}}, {{--recursive}}   Set the recursive level.
-{{-o}}, {{--output}}      If set, sent in separate file.
-{{-m}}, {{--md5}}         Add md5 hash.
-{{-p}}, {{--params}}      Provide settings in JSON format.
+{{-i}}, {{--in}}          File to be merged.
+{{-o}}, {{--out}}         Output file which receive merged content.
+{{-c}}, {{--clear}}       Remove included content in input file.
+{{-w}}, {{--write}}       Overwrite input file with merged content.
 {{-v}}, {{--verbose}}     Verbose Mode.
 {{-D}}, {{--debug}}       Debug Mode.
     {{--no-color}}    Remove color in the console. Usefull to
                   redirect log in a debug file.
 
+Implicits Options :
+  • First  : Stand for input  file ({{-i}},{{--in}})
+  • Second : Stand for output file ({{-o}},{{--out}})
+
 Details :
-  Params List :
-    - Boolean {{FileSize}}    Display File Size
-    - String  {{SizeFormat}}  File size in B, K, M, G, T (Byte)
+  • Long options has the priority over Short ones
+  • Short options has the priority over Implicit ones
 
     `;
 
     helpText = helpText.replace(
         /{{(.*?)}}/g,
-        `${opt.colors.fg.Yellow}$1${opt.colors.Reset}`
+        `${ifopt.colors.fg.Yellow}$1${ifopt.colors.Reset}`
     );
 
     console.log(helpText);
     if (level) process.exit();
+}
+
+function canRun() {
+    return (IFILE);
 }
 
 /**
@@ -610,20 +621,13 @@ if (OPTS.w || OPTS.write) {
     OFILE = IFILE;
 }
 
-
-/**
- * Vérifier qu'on à spécifier un fichier à traiter
- */
-if (!IFILE) {
-    log("No specified file to process", 1);
-    return false;
+if (ifopt.isOption(["v", "verbose"])) {
+    VERBOSE = true;
 }
 
-
-/**
- * Vérification de l'existance du fichier.
- */
-fileExists(IFILE, 1);
+if (ifopt.isOption(["D", "debug"])) {
+    DEBUG = true;
+}
 
 
 /**
@@ -639,18 +643,28 @@ let tmpFile = fs.createWriteStream(TMP_FILE, {});
 CLEAR = OPTS.clear ? true : !!OPTS.c;
 
 // Traitement du fichier
-readFile(IFILE, '', tmpFile, CLEAR);
+if (canRun()) {
+    // Check if file exist
+    fileExists(IFILE, 1);
 
+    readFile(IFILE, '', tmpFile, CLEAR);
 
-/**
- * Mise à jour du fichier
- */
-// Si le fichier de sortie n'est pas spécifié,
-// Utiliser <FILE>.merged.md par défaut
-if (!OFILE) {
-    OFILE = IFILE;
-    OFILE = OFILE.replace(/\.md$/, '.merged.md');
+    // Updating file :
+    // Si le fichier de sortie n'est pas spécifié,
+    // Utiliser <FILE>.merged.md par défaut
+    if (!OFILE) {
+        OFILE = IFILE;
+        OFILE = OFILE.replace(/\.md$/, '.merged.md');
+    }
+    fs.rename(TMP_FILE, OFILE, function(err) {
+        if (err) throw err;
+    });
+
+    SHOWHELP = false;
 }
-fs.rename(TMP_FILE, OFILE, function(err) {
-    if (err) throw err;
-});
+
+
+if (SHOWHELP) {
+    log("No specified file to process", 1);
+    help();
+}
