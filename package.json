@@ -25,6 +25,6 @@
         "mdmerge": "./bin/mdmerge.js"
     },
     "dependencies": {
-        "ifopt": "^1.4.1"
+        "ifopt": "^1.5.0"
     }
 }

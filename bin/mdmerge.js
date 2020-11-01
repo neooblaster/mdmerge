@@ -8,13 +8,16 @@ const readline = require('readline');
 const ifopt    = require('ifopt');
 const log      = ifopt.log;
 const clog     = console.log;
+const cdir = function (obj) {
+    console.dir(obj, {depth: null});
+};
 
 
 // Caractères individuels (n'accepte pas de valeur)
 // Caractères suivis par un deux-points (le paramètre nécessite une valeur)
 // Caractères suivis par deux-points (valeur optionnelle)
 const options = {
-    shortopt: "i:o:cwhDv",
+    shortopt: "i:o:cwhDvs",
     longopt: [
         "in:",
         "out:",
@@ -23,7 +26,8 @@ const options = {
         "help",
         "debug",
         "verbose",
-        "no-color"
+        "no-color",
+        "strict"
     ],
 };
 
@@ -69,6 +73,7 @@ Usage : ${name} [OPTIONS]
 {{-w}}, {{--write}}       Overwrite input file with merged content.
 {{-v}}, {{--verbose}}     Verbose Mode.
 {{-D}}, {{--debug}}       Debug Mode.
+{{-s}}, {{--strict}}      Do not modify included content.
     {{--no-color}}    Remove color in the console. Usefull to
                   redirect log in a debug file.
 
@@ -127,8 +132,20 @@ function fileExists(path, level) {
  * @param outputFile    Fichier de sortie (unique).
  * @param clearMode     Indicate to not perform inclusion and then to clear included content.
  * @param options       Options de lecture du fichier définie dans l'instruction.
+ * @param depth         Niveau d'imbrication pour la gestion des titres inclus
+ * @param wrapped       Indique si l'inclusion est dans un bloc enveloppé (codeblock)
  */
-function readFile (file, nestedPath, outputFile, clearMode, options = {}) {
+function readFile (
+    file,
+    nestedPath,
+    outputFile,
+    clearMode,
+    options = {},
+    depth = -1,
+    wrapped = false
+) {
+    depth++;
+
     let lines = fs.readFileSync(file, 'utf-8').split(/\r?\n/);
 
     let writeOutput = true; // On n'ecrit pas le contenu si celui-ci est un contenu entre balise
@@ -237,16 +254,17 @@ function readFile (file, nestedPath, outputFile, clearMode, options = {}) {
 
         // Si c'est une instruction, la traiter
         if (/^\[\]\([@#]import[><].+/.test(line)) {
-            //console.log("Une instruction", line);
-            //console.log("");
+            log("Include instruction found : %s", 4, [line]);
 
             let instruction = line;
 
             // Analyse de l'instruction
             let instructionData = readInstruction(instruction);
-            //console.log(instructionData);
             let instructionRole = instructionData.role;
             let instructionType = instructionData.type;
+
+            log("Instruction Data :", 4);
+            if (DEBUG) cdir(instructionData);
 
             // Si c'est une instruction d'ouverture
             if (instructionRole === '>') {
@@ -265,7 +283,7 @@ function readFile (file, nestedPath, outputFile, clearMode, options = {}) {
                 }
 
                 // Generer l'instruction de clôture
-                closingInstruction = instruction.replace(">", "<");
+                let closingInstruction = instruction.replace(">", "<");
 
                 // Securisation des instructions
                 if (/(?<!\\)\s/.test(instruction)) {
@@ -372,11 +390,27 @@ function readFile (file, nestedPath, outputFile, clearMode, options = {}) {
                     if (cutCouple.length > 0) {
                         cutCouple.map(function (couple) {
                             fileExists(`${nestedPath}${inclusion.file}`, 1);
-                            readFile(`${nestedPath}${inclusion.file}`, nestedPath, outputFile, clearMode, couple);
+                            readFile(
+                                `${nestedPath}${inclusion.file}`,
+                                nestedPath,
+                                outputFile,
+                                clearMode,
+                                couple,
+                                depth,
+                                inclusion.code.wrapped
+                            );
                         });
                     } else {
                         fileExists(`${nestedPath}${inclusion.file}`, 1);
-                        readFile(`${nestedPath}${inclusion.file}`, nestedPath, outputFile, clearMode);
+                        readFile(
+                            `${nestedPath}${inclusion.file}`,
+                            nestedPath,
+                            outputFile,
+                            clearMode,
+                            {},
+                            depth,
+                            inclusion.code.wrapped
+                        );
                     }
 
                     // Si on avait demandé à envelopper dans un code block
@@ -437,6 +471,22 @@ function readFile (file, nestedPath, outputFile, clearMode, options = {}) {
                         + nestedPath + pathToFile[4] // Path (path)
                         + pathToFile[5]              // Parenthèse )
                         + pathToFile[6];             // Fin
+                }
+
+                // S'il s'agit d'un titre markdown,
+                // il faut le rendre en tant que sous niveau
+                // en fonction du niveau d'imbrication
+                // sous condition de ne pas être en codeblock
+                // sous condition de ne pas inclure en stricte
+                // Le niveau 0 n'est pas en inclusion, c'est l'appel root
+                if (depth > 0 && !wrapped && !ifopt.isOption(['strict', 's'])) {
+                    // Commence strictement par un # (espace admis)
+                    if (/^\s*#/.test(line)) {
+                        let levelExtension = '#'.repeat(depth);
+                        let replace = line.replace(/^(\s*)([#]+)(.*)$/gi, `$1${levelExtension}$2$3`);
+                        log("Include title '%s' found extended to '%s'", 4, [line, replace]);
+                        line = replace;
+                    }
                 }
 
                 // Si on à démarré l'écriture ou on a affaire à une oneline
@@ -610,6 +660,8 @@ OPTS = ifopt.getopt(
     ['IFILE', 'OFILE'],
     IMPLICITS
 );
+ifopt.setLogLevel('VERBOSE', false, [3]);
+ifopt.setLogLevel('DEBUG', false, [4]);
 
 /**
  * Traitement des options
@@ -623,10 +675,12 @@ if (OPTS.w || OPTS.write) {
 
 if (ifopt.isOption(["v", "verbose"])) {
     VERBOSE = true;
+    ifopt.setLogLevel('VERBOSE', true);
 }
 
 if (ifopt.isOption(["D", "debug"])) {
     DEBUG = true;
+    ifopt.setLogLevel('DEBUG', true);
 }
 
 
@@ -646,6 +700,8 @@ CLEAR = OPTS.clear ? true : !!OPTS.c;
 if (canRun()) {
     // Check if file exist
     fileExists(IFILE, 1);
+
+    log("Read file %s", 3, [IFILE]);
 
     readFile(IFILE, '', tmpFile, CLEAR);
 
